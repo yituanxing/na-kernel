@@ -122,8 +122,13 @@ uint64_t get_arch_page_table_flags(uint64_t flags) {
 
     if (flags & PT_FLAG_R)
         attr |= ARCH_PT_FLAG_READ;
+    /*
+     * RISC-V reserves writable leaf PTEs without read permission.  Linux
+     * userspace commonly requests write-only shared mappings (for example
+     * compositor memfd buffers), so represent them as readable+writable.
+     */
     if (flags & PT_FLAG_W)
-        attr |= ARCH_PT_FLAG_WRITE;
+        attr |= ARCH_PT_FLAG_READ | ARCH_PT_FLAG_WRITE;
     if (flags & PT_FLAG_X)
         attr |= ARCH_PT_FLAG_EXEC;
     if (flags & PT_FLAG_U)

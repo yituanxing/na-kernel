@@ -10,6 +10,7 @@
 #include <drivers/fb.h>
 #include <drivers/drm/drm.h>
 #include <drivers/virtio/virtio.h>
+#include <irq/softirq.h>
 
 extern void acpi_init_after_pci();
 
@@ -80,6 +81,20 @@ void init_thread(uint64_t arg) {
     printk("System initialized, ready to go to userland.\n");
 
     current_task->nice = NORMAL_PRIORITY;
+
+    /*
+     * Process any pending softirqs (timer expirations, task reaping,
+     * etc.) before starting userland. During kernel init, softirqd
+     * may have accumulated pending work that hasn't been processed
+     * yet because the init thread was running at high priority.
+     * Without this, the desktop may fail to render because timer
+     * expirations and other deferred work aren't processed in time.
+     */
+    schedule(SCHED_FLAG_YIELD);
+    if (softirq_has_pending()) {
+        softirq_handle_pending();
+    }
+    schedule(SCHED_FLAG_YIELD);
 
     const char *argvs[2];
     memset(argvs, 0, sizeof(argvs));

@@ -1565,10 +1565,6 @@ static void xhci_free_controller(usb_xhci_t *xhci) {
 #define XHCI_TIME_POSTPOWER 20
 
 int xhci_hcd_driver_probe(pci_device_t *pci_dev) {
-#ifndef __x86_64__
-    return -ENOTSUP;
-#endif
-
     uint64_t mmio_base = 0;
     uint64_t mmio_size = 0;
 

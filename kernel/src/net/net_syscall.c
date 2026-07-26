@@ -792,6 +792,7 @@ uint64_t sys_accept(int sockfd, struct sockaddr_un *addr, socklen_t *addrlen,
     if (handle && handle->op && handle->op->accept) {
         struct sockaddr_un *kaddr = NULL;
         socklen_t kaddrlen = 0;
+        socklen_t user_addrlen = 0;
         socklen_t *kaddrlenp = NULL;
 
         if (addr) {
@@ -803,6 +804,7 @@ uint64_t sys_accept(int sockfd, struct sockaddr_un *addr, socklen_t *addrlen,
                 vfs_file_put(node);
                 return -EFAULT;
             }
+            user_addrlen = kaddrlen;
             if (kaddrlen > SOCKET_MSG_NAME_MAX) {
                 vfs_file_put(node);
                 return -EINVAL;
@@ -819,7 +821,13 @@ uint64_t sys_accept(int sockfd, struct sockaddr_un *addr, socklen_t *addrlen,
 
         ret = handle->op->accept(sockfd, kaddr, kaddrlenp, flags);
         if ((int64_t)ret >= 0 && kaddrlenp) {
-            size_t copy_len = MIN((size_t)kaddrlen, (size_t)*kaddrlenp);
+            /*
+             * The backend replaces kaddrlen with the peer address's actual
+             * length. Keep the original userspace capacity separately so a
+             * short accept4() buffer is truncated instead of overwritten.
+             */
+            size_t copy_len =
+                MIN((size_t)user_addrlen, (size_t)*kaddrlenp);
             if (copy_len && copy_to_user(addr, kaddr, copy_len))
                 ret = -EFAULT;
             if ((int64_t)ret >= 0 &&
